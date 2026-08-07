@@ -1,5 +1,9 @@
 # Day 11 — Controlled Agent Security (2026)
 
+**Họ và tên:** Nguyễn Hoàng Vũ  
+**MSSV:** 2A202601941  
+**Khóa:** 4  
+
 Làm sao để ứng dụng agent an toàn hơn?
 
 **Hình thức:** bài tập **cá nhân** (1 người / 1 MSSV).
