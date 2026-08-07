@@ -15,6 +15,9 @@ import argparse
 
 from core.config import setup_api_key
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 
 async def part1_attacks():
     """Hạng mục B: attack unsafe agent, then try guards agent (điểm cộng)."""

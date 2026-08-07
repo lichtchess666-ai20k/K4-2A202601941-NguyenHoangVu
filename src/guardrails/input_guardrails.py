@@ -5,12 +5,24 @@ Lab 11 — Part 2A: Input Guardrails
   TODO 3: Input Guardrail Plugin (ADK)
 """
 import re
+import unicodedata
 
 from google.genai import types
 from google.adk.plugins import base_plugin
 from google.adk.agents.invocation_context import InvocationContext
 
 from core.config import ALLOWED_TOPICS, BLOCKED_TOPICS
+
+
+def normalize_text(text: str) -> str:
+    """Normalize text by canonicalizing Unicode and removing invisible spacing."""
+    if not text:
+        return ""
+    # Unicode NFKC normalization
+    text = unicodedata.normalize("NFKC", text)
+    # Remove zero-width spaces, soft hyphens, BOM, and invisible control characters
+    text = re.sub(r"[\u200b-\u200d\ufeff\u200e\u200f\u202a-\u202e\u00ad]", "", text)
+    return text
 
 
 # ============================================================
@@ -41,14 +53,29 @@ def detect_injection(user_input: str) -> bool:
     Returns:
         True if injection detected, False otherwise
     """
+    normalized_input = normalize_text(user_input)
+
     INJECTION_PATTERNS = [
-        # TODO: Add at least 5 regex patterns
-        # Example:
-        # r"ignore (all )?(previous|above) instructions",
+        r"ignore (all )?(previous|above) instructions",
+        r"you are now",
+        r"system prompt",
+        r"reveal (your |the )?(instructions|prompt)",
+        r"pretend (you are|to be)",
+        r"act as (a |an )?unrestricted",
+        r"disregard (all )?(previous|above) instructions",
+        r"forget (all )?(previous|above) instructions",
+        r"bypass (all )?(security|guardrails)",
+        r"jailbreak",
+        r"override (system|previous) instructions",
+        r"developer mode",
+        r"bỏ qua (tất cả |mọi )?(hướng dẫn|chỉ thị|câu lệnh)",
+        r"tiết lộ (hướng dẫn|prompt|câu lệnh hệ thống)",
+        r"đừng tuân theo bất kỳ hướng dẫn trước đó nào",
+        r"bây giờ bạn"
     ]
 
     for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, user_input, re.IGNORECASE):
+        if re.search(pattern, normalized_input, re.IGNORECASE):
             return True
     return False
 
@@ -74,12 +101,23 @@ def topic_filter(user_input: str) -> bool:
     """
     input_lower = user_input.lower()
 
-    # TODO: Implement logic:
     # 1. If input contains any blocked topic -> return True
-    # 2. If input doesn't contain any allowed topic -> return True
-    # 3. Otherwise -> return False (allow)
+    for blocked in BLOCKED_TOPICS:
+        if blocked in input_lower:
+            return True
 
-    pass  # Replace with your implementation
+    # 2. If input doesn't contain any allowed topic -> return True
+    has_allowed = False
+    for allowed in ALLOWED_TOPICS:
+        if allowed in input_lower:
+            has_allowed = True
+            break
+
+    if not has_allowed:
+        return True
+
+    # 3. Otherwise -> return False (allow)
+    return False
 
 
 # ============================================================
@@ -132,14 +170,15 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         self.total_count += 1
         text = self._extract_text(user_message)
 
-        # TODO: Implement logic:
-        # 1. Call detect_injection(text)
-        #    - If True: increment blocked_count, return self._block_response("...")
-        # 2. Call topic_filter(text)
-        #    - If True: increment blocked_count, return self._block_response("...")
-        # 3. If both are False: return None (let message through)
+        if detect_injection(text):
+            self.blocked_count += 1
+            return self._block_response("Input blocked: Prompt injection detected.")
 
-        pass  # Replace with your implementation
+        if topic_filter(text):
+            self.blocked_count += 1
+            return self._block_response("Input blocked: Request is off-topic or contains blocked content.")
+
+        return None
 
 
 # ============================================================

@@ -65,32 +65,42 @@ class ConfidenceRouter:
         Returns:
             RoutingDecision with routing action and metadata
         """
-        # TODO 11: Implement routing logic
-        #
-        # 1. Check if action_type is in HIGH_RISK_ACTIONS
-        #    -> If yes: always escalate (action="escalate", priority="high",
-        #       requires_human=True, reason="High-risk action: {action_type}")
-        #
-        # 2. Check confidence thresholds:
-        #    - confidence >= 0.9:
-        #      action="auto_send", priority="low",
-        #      requires_human=False, reason="High confidence"
-        #
-        #    - 0.7 <= confidence < 0.9:
-        #      action="queue_review", priority="normal",
-        #      requires_human=True, reason="Medium confidence — needs review"
-        #
-        #    - confidence < 0.7:
-        #      action="escalate", priority="high",
-        #      requires_human=True, reason="Low confidence — escalating"
+        # 1. High-risk actions always escalate regardless of confidence
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate",
+                confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high",
+                requires_human=True,
+            )
+
+        # 2. Check confidence thresholds
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send",
+                confidence=confidence,
+                reason="High confidence",
+                priority="low",
+                requires_human=False,
+            )
+
+        if confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review",
+                confidence=confidence,
+                reason="Medium confidence — needs review",
+                priority="normal",
+                requires_human=True,
+            )
 
         return RoutingDecision(
-            action="auto_send",
+            action="escalate",
             confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+            reason="Low confidence — escalating",
+            priority="high",
+            requires_human=True,
+        )
 
 
 # ============================================================
@@ -111,33 +121,33 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "High-Value Money Transfer Approval",
+        "trigger": "User requests money transfer exceeding 10,000,000 VND or transfer to unknown account.",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Sender account, recipient name and account number, transfer amount, velocity risk score.",
+        "example": "Customer requests transferring 50,000,000 VND. Agent drafts request and pauses for human authorization.",
+        "approval_path": "Officer approves -> transaction executed; Officer rejects -> cancelled; Timeout (10m) -> transaction expired.",
+        "audit_fields": "correlation_id, user_id, intent='transfer_money', payload_diff, reviewer_id, reviewer_decision, timestamp",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Account Closure & Sensitive Data Deletion",
+        "trigger": "User requests account termination, credit card cancellation, or profile data deletion.",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Account balance status, active debts/loans, identity verification status, and customer retention history.",
+        "example": "Customer states 'Close my VinBank account and delete my data'. Agent drafts closure request and routes to manager.",
+        "approval_path": "Manager approves -> closure pipeline initiated; Manager rejects -> request denied with reason; Timeout (15m) -> request put on hold.",
+        "audit_fields": "correlation_id, user_id, intent='close_account', proposed_action='terminate_account', reviewer_id, reviewer_decision, timestamp",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
-        "approval_path": "TODO: Explain approve, reject and timeout behavior",
-        "audit_fields": "TODO: List correlation ID, intent, diff and reviewer decision",
+        "name": "Medium-Confidence Policy & Service Inquiries",
+        "trigger": "Model confidence score is between 0.70 and 0.89 for complex customer service questions.",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "User prompt history, RAG document source snippets, model proposed response, and confidence score.",
+        "example": "Customer asks about complex loan interest calculation during promotional period. Model confidence is 0.78.",
+        "approval_path": "Supervisor approves/edits -> response delivered to user; Supervisor rejects -> fallback template sent; Timeout (5m) -> auto-send safe standard response.",
+        "audit_fields": "correlation_id, user_id, intent='loan_inquiry', model_confidence, proposed_response, reviewer_action, timestamp",
     },
 ]
 
